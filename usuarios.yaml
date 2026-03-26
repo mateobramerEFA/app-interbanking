@@ -1,0 +1,12 @@
+credentials:
+  users:
+    mateo:
+      name: Mateo Bramer
+      password: $2b$12$aVihulWqqOcg0/uWZEz2Yu5M4ehHAYba26LWQU3yeOVoutzSzkH3a
+    Ale:
+      name: Ale Sanchez
+      password: $2b$12$BezeMT3ePsIaxXIcUgMNMOj79WnARw0fQW3V67yQsNhnVS1iy1V6m
+cookie:
+  name: interbanking_app
+  key: clave_ultrasecreta_123
+  expiry_days: 1
