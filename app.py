@@ -1,7 +1,18 @@
 import streamlit as st
+
+# ✅ SIEMPRE PRIMERO
+st.set_page_config(
+    page_title="Interbanking · Reportes",
+    page_icon="📊",
+    layout="centered",
+)
+
+# ─────────────────────────────────────────────
+# IMPORTS
+# ─────────────────────────────────────────────
+
 from datetime import date, timedelta
 import importlib
-
 from reportes.generador import generar_excel
 
 # ─────────────────────────────────────────────
@@ -29,32 +40,15 @@ if not st.session_state["auth"]:
 
     st.stop()
 
-# Usuario logueado
+# ─────────────────────────────────────────────
+# USUARIO LOGUEADO
+# ─────────────────────────────────────────────
+
 st.success(f"Bienvenido {st.session_state['user']} 👋")
 
 if st.sidebar.button("Cerrar sesión"):
     st.session_state["auth"] = False
     st.rerun()
-
-# ─────────────────────────────────────────────
-# CONFIG PÁGINA
-# ─────────────────────────────────────────────
-
-st.set_page_config(
-    page_title="Interbanking · Reportes",
-    page_icon="📊",
-    layout="centered",
-)
-
-# ─────────────────────────────────────────────
-# ESTILOS
-# ─────────────────────────────────────────────
-
-st.markdown("""
-<style>
-.block-container { max-width: 700px; }
-</style>
-""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # HEADER
