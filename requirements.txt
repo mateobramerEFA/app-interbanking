@@ -1,5 +1,4 @@
-streamlit
+flask
+gunicorn
 openpyxl
 requests
-PyYAML
-bcrypt

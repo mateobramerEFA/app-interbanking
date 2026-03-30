@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interbanking · Reportes</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue-dark:   #1f4e79;
+      --blue-mid:    #2e75b6;
+      --blue-light:  #d6e4f0;
+      --yellow:      #fff2cc;
+      --yellow-dark: #7b6000;
+      --green:       #d4edda;
+      --green-text:  #155724;
+      --amber:       #fff3cd;
+      --amber-text:  #856404;
+      --red:         #f8d7da;
+      --red-text:    #721c24;
+      --gray-bg:     #f4f6f9;
+      --border:      #d0d7de;
+      --text:        #24292f;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--gray-bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ────────────────────────────────── */
+    header {
+      background: var(--blue-dark);
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header svg { flex-shrink: 0; }
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: .3px; }
+    header p  { font-size: .8rem; opacity: .75; margin-top: 2px; }
+
+    /* ── LAYOUT ────────────────────────────────── */
+    main {
+      max-width: 820px;
+      margin: 32px auto;
+      padding: 0 16px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── CARD ──────────────────────────────────── */
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px 28px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .card-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--blue-dark);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* ── FORM ELEMENTS ─────────────────────────── */
+    label {
+      display: block;
+      font-size: .82rem;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    select, input[type="date"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: .9rem;
+      background: #fff;
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    select:focus, input[type="date"]:focus {
+      outline: none;
+      border-color: var(--blue-mid);
+      box-shadow: 0 0 0 3px rgba(46,117,182,.15);
+    }
+
+    /* ── DATE ROW ──────────────────────────────── */
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* ── ACCOUNT TOOLBAR ───────────────────────── */
+    .accounts-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .btn-sm {
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      transition: background .12s, border-color .12s;
+    }
+    .btn-sm:hover { background: var(--blue-light); border-color: var(--blue-mid); }
+
+    /* ── ACCOUNT LIST ──────────────────────────── */
+    #accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    #accounts-list.loading {
+      align-items: center;
+      justify-content: center;
+      min-height: 80px;
+      color: #888;
+      font-size: .85rem;
+    }
+
+    .account-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .account-item:hover { background: var(--blue-light); }
+    .account-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--blue-mid);
+      flex-shrink: 0;
+    }
+    .account-item label {
+      margin: 0;
+      font-size: .88rem;
+      font-weight: 400;
+      cursor: pointer;
+      flex: 1;
+    }
+    .badge {
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+    .badge-ars { background: #d4edda; color: #155724; }
+    .badge-usd { background: #cce5ff; color: #004085; }
+
+    /* ── SUBMIT BUTTON ─────────────────────────── */
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--blue-dark);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .15s, transform .1s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--blue-mid); }
+    .btn-primary:active:not(:disabled) { transform: scale(.99); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ALERTS ────────────────────────────────── */
+    .alert {
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-size: .87rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .alert-success { background: var(--green);  color: var(--green-text); }
+    .alert-warning { background: var(--amber);  color: var(--amber-text); }
+    .alert-error   { background: var(--red);    color: var(--red-text);   }
+
+    /* ── RESULTS ───────────────────────────────── */
+    #results { display: flex; flex-direction: column; gap: 10px; }
+
+    .result-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .result-chip {
+      padding: 4px 14px;
+      border-radius: 99px;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .accounts-results {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .account-result {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .85rem;
+      padding: 4px 0;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-ok  { background: #28a745; }
+    .dot-err { background: #ffc107; }
+
+    /* ── DOWNLOAD BUTTON ───────────────────────── */
+    .btn-download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 20px;
+      background: #217346;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      width: 100%;
+      transition: background .15s;
+    }
+    .btn-download:hover { background: #185c38; }
+
+    /* ── SCROLLBAR ─────────────────────────────── */
+    #accounts-list::-webkit-scrollbar { width: 6px; }
+    #accounts-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+    @media (max-width: 520px) {
+      .date-row { grid-template-columns: 1fr; }
+      header { padding: 14px 16px; }
+      .card { padding: 18px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8">
+    <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
+  </svg>
+  <div>
+    <h1>Interbanking · Extractos bancarios</h1>
+    <p>Seleccioná empresa, cuentas y período para generar el reporte</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- EMPRESA -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Empresa
+    </div>
+    <label for="empresa">Seleccioná la empresa</label>
+    <select id="empresa">
+      <option value="eliantus">Eliantus</option>
+      <option value="elementa">Elementa</option>
+      <option value="integra">Integra</option>
+    </select>
+  </div>
+
+  <!-- CUENTAS -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+      Cuentas bancarias
+    </div>
+    <div class="accounts-toolbar">
+      <button class="btn-sm" id="btn-all">Seleccionar todas</button>
+      <button class="btn-sm" id="btn-clear">Limpiar selección</button>
+    </div>
+    <div id="accounts-list" class="loading">Cargando cuentas…</div>
+  </div>
+
+  <!-- FECHAS -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Período
+    </div>
+    <div class="date-row">
+      <div>
+        <label for="desde">Desde</label>
+        <input type="date" id="desde" value="{{ desde }}" />
+      </div>
+      <div>
+        <label for="hasta">Hasta</label>
+        <input type="date" id="hasta" value="{{ hasta }}" />
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTÓN -->
+  <button class="btn-primary" id="btn-generar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Generar reporte
+  </button>
+
+  <!-- RESULTADOS -->
+  <div id="results"></div>
+
+</main>
+
+<script>
+  const empresaSel  = document.getElementById("empresa");
+  const accountList = document.getElementById("accounts-list");
+  const btnAll      = document.getElementById("btn-all");
+  const btnClear    = document.getElementById("btn-clear");
+  const btnGenerar  = document.getElementById("btn-generar");
+  const resultsDiv  = document.getElementById("results");
+
+  let allCuentas = [];
+
+  // ── Cargar cuentas ──────────────────────────────────────────────────
+  async function cargarCuentas(empresa) {
+    accountList.className = "loading";
+    accountList.textContent = "Cargando cuentas…";
+    allCuentas = [];
+
+    try {
+      const res  = await fetch(`/api/cuentas?empresa=${empresa}`);
+      const data = await res.json();
+      allCuentas = data;
+      renderCuentas(data);
+    } catch {
+      accountList.className = "";
+      accountList.innerHTML = `<div class="alert alert-error">Error cargando cuentas.</div>`;
+    }
+  }
+
+  function renderCuentas(cuentas) {
+    accountList.className = "";
+    if (!cuentas.length) {
+      accountList.textContent = "Sin cuentas disponibles.";
+      return;
+    }
+    accountList.innerHTML = cuentas.map(c => `
+      <label class="account-item">
+        <input type="checkbox" name="cuenta" value="${c.id}" />
+        <span style="flex:1">${c.label}</span>
+        <span class="badge ${c.peso === 'USD' ? 'badge-usd' : 'badge-ars'}">${c.peso}</span>
+      </label>
+    `).join("");
+  }
+
+  btnAll.addEventListener("click", () => {
+    accountList.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = true);
+  });
+
+  btnClear.addEventListener("click", () => {
+    accountList.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
+  });
+
+  empresaSel.addEventListener("change", () => cargarCuentas(empresaSel.value));
+
+  // ── Generar reporte ─────────────────────────────────────────────────
+  btnGenerar.addEventListener("click", async () => {
+    resultsDiv.innerHTML = "";
+
+    const indices = Array.from(
+      accountList.querySelectorAll("input[type=checkbox]:checked")
+    ).map(cb => parseInt(cb.value));
+
+    const desde = document.getElementById("desde").value;
+    const hasta = document.getElementById("hasta").value;
+
+    if (!indices.length) {
+      showAlert("Seleccioná al menos una cuenta.", "warning");
+      return;
+    }
+    if (!desde || !hasta) {
+      showAlert("Completá las fechas.", "warning");
+      return;
+    }
+    if (desde > hasta) {
+      showAlert("La fecha 'Desde' no puede ser mayor que 'Hasta'.", "error");
+      return;
+    }
+
+    // Loading state
+    btnGenerar.disabled = true;
+    btnGenerar.innerHTML = `<div class="spinner"></div> Procesando cuentas…`;
+
+    try {
+      const res  = await fetch("/api/generar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresa: empresaSel.value,
+          desde, hasta, indices,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert(data.error || "Error generando el reporte.", "error");
+        return;
+      }
+
+      renderResultados(data);
+      triggerDownload(data.excel, data.filename);
+
+    } catch (err) {
+      showAlert("Error de conexión al servidor.", "error");
+    } finally {
+      btnGenerar.disabled = false;
+      btnGenerar.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Generar reporte`;
+    }
+  });
+
+  function renderResultados(data) {
+    const conMov = data.resultados.filter(r => r.ok);
+    const sinMov = data.resultados.filter(r => !r.ok);
+
+    let html = `<div class="card"><div class="card-title">Resultados</div>`;
+
+    html += `<div class="result-summary">`;
+    if (conMov.length)
+      html += `<span class="result-chip" style="background:var(--green);color:var(--green-text)">✔ ${conMov.length} con movimientos</span>`;
+    if (sinMov.length)
+      html += `<span class="result-chip" style="background:var(--amber);color:var(--amber-text)">⚠ ${sinMov.length} sin movimientos</span>`;
+    html += `</div><br>`;
+
+    html += `<div class="accounts-results">`;
+    data.resultados.forEach(r => {
+      html += `<div class="account-result">
+        <span class="dot ${r.ok ? 'dot-ok' : 'dot-err'}"></span>
+        <span>${r.nombre}</span>
+        <span style="margin-left:auto;font-size:.75rem;color:#666">${r.ok ? 'con movimientos' : 'sin movimientos'}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+
+    resultsDiv.innerHTML = html;
+  }
+
+  function triggerDownload(base64, filename) {
+    const bytes  = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const blob   = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement("a");
+    a.href       = url;
+    a.download   = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function showAlert(msg, type) {
+    const icons = {
+      warning: "⚠",
+      error:   "✖",
+      success: "✔",
+    };
+    resultsDiv.innerHTML = `
+      <div class="alert alert-${type}">
+        <span>${icons[type] || "ℹ"}</span>
+        <span>${msg}</span>
+      </div>`;
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────
+  cargarCuentas(empresaSel.value);
+</script>
+</body>
+</html>
