@@ -1,149 +1,100 @@
-import streamlit as st
-from datetime import date, timedelta
+"""
+app.py - Flask application for Interbanking Reportes
+Replaces Streamlit with a standard Flask + HTML frontend.
+"""
+
+import base64
 import importlib
+from datetime import date, timedelta
+
+from flask import Flask, jsonify, render_template, request, send_file
+import io
+
 from reportes.generador import generar_excel
 
-# ✅ Configuración de la página
-st.set_page_config(
-    page_title="Interbanking · Reportes",
-    page_icon="📊",
-    layout="centered",
-)
+app = Flask(__name__)
 
-# ─────────────────────────────────────────────
-# Usuario ficticio para pruebas (sin login)
-# ─────────────────────────────────────────────
-user_email = "test@empresa.com"
-st.success(f"Bienvenido {user_email} 👋")
-
-# ─────────────────────────────────────────────
-# HEADER
-# ─────────────────────────────────────────────
-st.title("📊 Extractos bancarios")
-st.caption("Seleccioná empresa, cuentas y período")
-
-# ─────────────────────────────────────────────
-# EMPRESA
-# ─────────────────────────────────────────────
-empresa = st.selectbox(
-    "Empresa",
-    options=["eliantus", "elementa", "integra"],
-    format_func=lambda x: x.capitalize(),
-)
-
-# ─────────────────────────────────────────────
-# RESET CUENTAS SI CAMBIA EMPRESA
-# ─────────────────────────────────────────────
-if "empresa_prev" not in st.session_state:
-    st.session_state["empresa_prev"] = empresa
-
-if st.session_state["empresa_prev"] != empresa:
-    st.session_state["cuentas"] = []
-    st.session_state["empresa_prev"] = empresa
-
-# ─────────────────────────────────────────────
-# CARGAR CUENTAS
-# ─────────────────────────────────────────────
 EMPRESAS_MODULOS = {
     "eliantus": "srcELIANTUS.CodigoBancosEliantus",
     "elementa": "srcELEMENTA.CodigoBancosElementa",
     "integra": "srcINTEGRA.CodigoBancosINTEGRA",
 }
 
-mod_cuentas = importlib.import_module(EMPRESAS_MODULOS[empresa])
-CUENTAS = mod_cuentas.CUENTAS
 
-# ─────────────────────────────────────────────
-# FORMATO CUENTAS
-# ─────────────────────────────────────────────
-def format_cuenta(c):
-    return f"{c.abreviatura} - {c.numero} ({c.banco})"
+@app.route("/")
+def index():
+    hoy = date.today()
+    return render_template(
+        "index.html",
+        desde=(hoy - timedelta(days=7)).isoformat(),
+        hasta=hoy.isoformat(),
+    )
 
-# ─────────────────────────────────────────────
-# SELECTOR DE CUENTAS
-# ─────────────────────────────────────────────
-st.markdown("### 🏦 Cuentas")
-col1, col2 = st.columns(2)
 
-with col1:
-    if st.button("Seleccionar todas"):
-        st.session_state["cuentas"] = CUENTAS
+@app.route("/api/cuentas")
+def api_cuentas():
+    empresa = request.args.get("empresa", "eliantus").lower()
+    if empresa not in EMPRESAS_MODULOS:
+        return jsonify({"error": "Empresa inválida"}), 400
 
-with col2:
-    if st.button("Limpiar selección"):
-        st.session_state["cuentas"] = []
+    mod = importlib.import_module(EMPRESAS_MODULOS[empresa])
+    cuentas = [
+        {
+            "id": i,
+            "numero": c.numero,
+            "tipo": c.tipo,
+            "peso": c.peso,
+            "banco": c.banco,
+            "nombre": c.nombre,
+            "abreviatura": c.abreviatura,
+            "label": f"{c.abreviatura} - {c.numero} ({c.banco}) [{c.peso}]",
+        }
+        for i, c in enumerate(mod.CUENTAS)
+    ]
+    return jsonify(cuentas)
 
-default_cuentas = [
-    c for c in st.session_state.get("cuentas", [])
-    if c in CUENTAS
-]
 
-cuentas_seleccionadas = st.multiselect(
-    "Elegí las cuentas",
-    options=CUENTAS,
-    default=default_cuentas,
-    format_func=format_cuenta
-)
+@app.route("/api/generar", methods=["POST"])
+def api_generar():
+    data = request.get_json(force=True)
+    empresa = data.get("empresa", "").lower()
+    desde = data.get("desde", "")
+    hasta = data.get("hasta", "")
+    indices = data.get("indices", [])
 
-st.session_state["cuentas"] = cuentas_seleccionadas
-
-# ─────────────────────────────────────────────
-# FECHAS
-# ─────────────────────────────────────────────
-col1, col2 = st.columns(2)
-
-with col1:
-    desde = st.date_input("Desde", value=date.today() - timedelta(days=7))
-
-with col2:
-    hasta = st.date_input("Hasta", value=date.today())
-
-# ─────────────────────────────────────────────
-# GENERAR REPORTE
-# ─────────────────────────────────────────────
-if st.button("⬇ Generar reporte", use_container_width=True):
-
-    if not cuentas_seleccionadas:
-        st.warning("⚠ Seleccioná al menos una cuenta")
-        st.stop()
-
+    if empresa not in EMPRESAS_MODULOS:
+        return jsonify({"error": "Empresa inválida"}), 400
+    if not desde or not hasta:
+        return jsonify({"error": "Fechas requeridas"}), 400
     if desde > hasta:
-        st.error("⚠ La fecha 'Desde' no puede ser mayor que 'Hasta'")
-        st.stop()
+        return jsonify({"error": "La fecha 'Desde' no puede ser mayor que 'Hasta'"}), 400
+    if not indices:
+        return jsonify({"error": "Seleccioná al menos una cuenta"}), 400
 
-    with st.spinner("Procesando cuentas..."):
+    mod = importlib.import_module(EMPRESAS_MODULOS[empresa])
+    todas = mod.CUENTAS
+    cuentas_sel = [todas[i] for i in indices if 0 <= i < len(todas)]
 
+    try:
         excel_bytes, resultados = generar_excel(
             empresa=empresa,
-            desde=str(desde),
-            hasta=str(hasta),
-            cuentas_seleccionadas=cuentas_seleccionadas
+            desde=desde,
+            hasta=hasta,
+            cuentas_seleccionadas=cuentas_sel,
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    # ─────────────────────────────
-    # RESULTADOS
-    # ─────────────────────────────
-    con_mov = [c for c, ok in resultados if ok]
-    sin_mov = [c for c, ok in resultados if not ok]
-
-    if con_mov:
-        st.success(f"✔ {len(con_mov)} cuentas con movimientos")
-    if sin_mov:
-        st.warning(f"⚠ {len(sin_mov)} cuentas sin movimientos")
-
-    for cuenta, ok in resultados:
-        if ok:
-            st.success(f"{cuenta.abreviatura} → con movimientos")
-        else:
-            st.warning(f"{cuenta.abreviatura} → sin movimientos")
-
-    # ─────────────────────────────
-    # DESCARGA
-    # ─────────────────────────────
-    st.download_button(
-        label="📥 Descargar Excel",
-        data=excel_bytes,
-        file_name=f"reporte_{empresa}_{desde}_{hasta}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
+    return jsonify(
+        {
+            "excel": base64.b64encode(excel_bytes).decode(),
+            "filename": f"reporte_{empresa}_{desde}_{hasta}.xlsx",
+            "resultados": [
+                {"nombre": c.abreviatura, "ok": ok} for c, ok in resultados
+            ],
+        }
     )
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=False)
